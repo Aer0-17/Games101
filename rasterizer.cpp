@@ -132,6 +132,7 @@ auto to_vec4(const Eigen::Vector3f& v3, float w = 1.0f)
     return Vector4f(v3.x(), v3.y(), v3.z(), w);
 }
 
+//pos_buffer 顶点数据 ind_buffer 索引
 void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffer, rst::Primitive type)
 {
     if (type != rst::Primitive::Triangle)
@@ -149,6 +150,7 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
     {
         Triangle t;
 
+        //三角形三个点的坐标变成齐次坐标再经过mvp转换
         Eigen::Vector4f v[] = {
                 mvp * to_vec4(buf[i[0]], 1.0f),
                 mvp * to_vec4(buf[i[1]], 1.0f),
@@ -159,6 +161,7 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
             vec /= vec.w();
         }
 
+        //视口变换 [-1,1]^2映射到[0,w][0,h] 平移量是1，缩放因子是w/2 h/2
         for (auto & vert : v)
         {
             vert.x() = 0.5*width*(vert.x()+1.0);
@@ -166,6 +169,7 @@ void rst::rasterizer::draw(rst::pos_buf_id pos_buffer, rst::ind_buf_id ind_buffe
             vert.z() = vert.z() * f1 + f2;
         }
 
+        //设置三角形三个顶点的坐标
         for (int i = 0; i < 3; ++i)
         {
             t.setVertex(i, v[i].head<3>());
