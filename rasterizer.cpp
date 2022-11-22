@@ -66,18 +66,33 @@ static bool insideTriangle(float x, float y, const Vector3f* _v)
     Vector3f p2p = p - _v[2];
     //std::cout << "(p0p1.cross(p0p).z()" << p0p1.cross(p0p).z()<< "p1p2.cross(p1p).z()" << p1p2.cross(p1p).z()<<"p2p0.cross(p2p).z()" << p2p0.cross(p2p).z()<<std::endl;
     //std::cout << "_v[0].x()" << _v[0].x()<< "_v[0].y()" << _v[0].y() << "_v[1].x()" << _v[1].x()<< "_v[1].y()" << _v[1].y() << "_v[2].x()" << _v[2].x()<< "_v[2].y()" << _v[2].y() <<std::endl;
+    //点叉乘三条边大于0证明在三角形内
     return ((p0p1.cross(p0p).z() > 0) && (p1p2.cross(p1p).z() > 0) && (p2p0.cross(p2p).z() > 0));
-    
 }
 
 static std::tuple<float, float, float> computeBarycentric2D(float x, float y, const Vector3f* v)
 {
-    float c1 = (x*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*y + v[1].x()*v[2].y() - v[2].x()*v[1].y()) / (v[0].x()*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*v[0].y() + v[1].x()*v[2].y() - v[2].x()*v[1].y());
-    float c2 = (x*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*y + v[2].x()*v[0].y() - v[0].x()*v[2].y()) / (v[1].x()*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*v[1].y() + v[2].x()*v[0].y() - v[0].x()*v[2].y());
-    float c3 = (x*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*y + v[0].x()*v[1].y() - v[1].x()*v[0].y()) / (v[2].x()*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*v[2].y() + v[0].x()*v[1].y() - v[1].x()*v[0].y());
+    //[ABx, ACx, PAx] * [ABy, ACy, PAy] ==> 平行于[u,v,1]向量
+    Vector3f U1(v[1].x() - v[0].x(), v[2].x() - v[0].x(), v[0].x() - x);
+    Vector3f U2(v[1].y() - v[0].y(), v[2].y() - v[0].y(), v[0].y() - y);
+
+    Vector3f U3 = U1.cross(U2);
+
+    float c1 = 1-(U3.x()/U3.z() + U3.y()/U3.z());
+    float c2 = U3.x()/U3.z();
+    float c3 = U3.y()/U3.z();
+
     return {c1,c2,c3};
+
+
+
+    //float c1 = (x*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*y + v[1].x()*v[2].y() - v[2].x()*v[1].y()) / (v[0].x()*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*v[0].y() + v[1].x()*v[2].y() - v[2].x()*v[1].y());
+    //float c2 = (x*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*y + v[2].x()*v[0].y() - v[0].x()*v[2].y()) / (v[1].x()*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*v[1].y() + v[2].x()*v[0].y() - v[0].x()*v[2].y());
+    //float c3 = (x*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*y + v[0].x()*v[1].y() - v[1].x()*v[0].y()) / (v[2].x()*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*v[2].y() + v[0].x()*v[1].y() - v[1].x()*v[0].y());
+    //return {c1,c2,c3};
 }
 
+//pos_buffer 顶点数据 ind_buffer 索引
 void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf_id col_buffer, Primitive type)
 {
     auto& buf = pos_buf[pos_buffer.pos_id];
@@ -91,6 +106,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
     for (auto& i : ind)
     {
         Triangle t;
+        //三角形三个点的坐标变成齐次坐标再经过mvp转换
         Eigen::Vector4f v[] = {
                 mvp * to_vec4(buf[i[0]], 1.0f),
                 mvp * to_vec4(buf[i[1]], 1.0f),
@@ -101,6 +117,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
             vec /= vec.w();
         }
         //Viewport transformation
+        //视口变换 [-1,1]^2映射到[0,w][0,h] 平移量是1，缩放因子是w/2 h/2
         for (auto & vert : v)
         {
             vert.x() = 0.5*width*(vert.x()+1.0);
@@ -108,6 +125,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
             vert.z() = vert.z() * f1 + f2;
         }
 
+        //设置三角形三个顶点的坐标
         for (int i = 0; i < 3; ++i)
         {
             t.setVertex(i, v[i].head<3>());
@@ -135,6 +153,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     //std::array<Vector3f, 2> *bbox;
     //bbox = FindBoundingBox(700, 700, v1);
 
+    //包围盒
     int min_x, min_y, max_x, max_y;
     min_x = std::min(v[0].x(), std::min(v[1].x(), v[2].x()));
     min_y = std::min(v[0].y(), std::min(v[1].y(), v[2].y()));
@@ -173,6 +192,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                 float alpha, beta, gamma;
                 auto tup = computeBarycentric2D((float)x + 0.5, (float)y + 0.5, t.v);
                 std::tie(alpha, beta, gamma) = tup;
+                //用重心坐标求每个点的z值
                 float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
                 float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
                 z_interpolated *= w_reciprocal;
@@ -190,6 +210,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             #endif
             #if 0
             count = 0;
+            //MSAA 一个像素分为2x2
             for(int i = 0; i < 4; i++)
             {
                 if(insideTriangle((float)x+step[i][0], (float)y+step[i][1], t.v)) {
@@ -219,6 +240,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             bool judge = false;
             for(int i = 0; i < 4; i++)
             {
+                //去黑边MSAA 对颜色也做采样
                 if(insideTriangle((float)x+step[i][0], (float)y+step[i][1], t.v)) {
                     
                     float alpha, beta, gamma;
@@ -287,14 +309,18 @@ rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
     super_depth_buf.resize(w * h * 4);
 }
 
+//深度值放在一维数组中，但像素位置相当于二维坐标
+//(y-1) * x + x
 int rst::rasterizer::get_index(int x, int y)
 {
     return (height-1-y)*width + x;
+    //return (y - 1)*width + x;
 }
 
 int rst::rasterizer::get_super_index(int x, int y)
 {
     return (height*2-1-y)*width*2 + x;
+    //return (y - 1)*width*2 + x;
 }
 
 void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color)
