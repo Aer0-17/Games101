@@ -7,9 +7,10 @@
 
 constexpr double MY_PI = 3.1415926;
 
+//将相机移至原点
 Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
 {
-    Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f view = Eigen::Matrix4f::Identity();//定义4*4单位矩阵
 
     Eigen::Matrix4f translate;
     translate << 1,0,0,-eye_pos[0],
@@ -30,6 +31,7 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     // Create the model matrix for rotating the triangle around the Z axis.
     // Then return it.
 
+    //绕Z轴旋转
     rotation_angle = rotation_angle / 180.0 * MY_PI;
     model << cos(rotation_angle),       -1.0*sin(rotation_angle),       0,      0,
              sin(rotation_angle),       cos(rotation_angle),            0,      0,
@@ -39,6 +41,7 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     return model;
 }
 
+//eye_fov垂直可视角度 aspect_ratio宽高比
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
 {
     // Students will implement this function
@@ -51,11 +54,12 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
 
     eye_fov  = eye_fov / 180.0 * MY_PI;
 
-    float top = zNear * tan(eye_fov * 0.5); //需要变换的长方体的顶部
+    float top = zNear * tan(eye_fov * 0.5); //需要变换的长方体的顶部  y轴正方向值 = 显示视口的一半高度
     float bottom = -top;                    //需要变换的长方体的底部
-    float right = top * aspect_ratio;       //需要变换的长方体的右侧
+    float right = top * aspect_ratio;       //需要变换的长方体的右侧  x轴正方向值 = 显示视口的一半宽度
     float left = -right;                    //需要变换的长方体的左侧
- 
+
+    //正交投影先平移到原点再缩放在[-1,1]^3
     Eigen::Matrix4f ortho = Eigen::Matrix4f::Identity();    //Mortho
     ortho <<    2 / (right - left), 0, 0, (right + left) / (right - left),
                 0, 2 / (top - bottom), 0, (top + bottom) / (top - bottom),    //此处应将2 / (top - bottom) 改为 2 / (bottom - top), 因为投影视图是上下颠倒的
