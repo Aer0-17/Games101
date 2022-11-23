@@ -138,7 +138,8 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
     if (payload.texture)
     {
         // TODO: Get the texture value at the texture coordinates of the current fragment
-        return_color = payload.texture->getColor(payload.tex_coords.x(), payload.tex_coords.y());
+        //return_color = payload.texture->getColor(payload.tex_coords.x(), payload.tex_coords.y());
+        return_color = payload.texture->getColorBiliner(payload.tex_coords.x(), payload.tex_coords.y());
     }
     Eigen::Vector3f texture_color;
     texture_color << return_color.x(), return_color.y(), return_color.z();
@@ -183,8 +184,11 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
 
 Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
 {
+    //环境光
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
+    //漫反射
     Eigen::Vector3f kd = payload.color;
+    //高光
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
 
     auto l1 = light{{20, 20, 20}, {500, 500, 500}};
@@ -213,7 +217,7 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
         h = (l + v).normalized();                       //半程向量
         //漫反射光= kd(I/r2)max(0, l*n)
         dif = kd.cwiseProduct(light.intensity / ((light.position - point).dot(light.position - point))) * std::fmax(0, normal.dot(l));
-        //高光= ks(I/r2)max(0, n*h)
+        //高光= ks(I/r2)max(0, n*h)^p
         spe = ks.cwiseProduct(light.intensity / ((light.position - point).dot(light.position - point))) * std::pow(std::fmax(0, normal.dot(h)), p);
         result_color += (dif + spe);
     }
